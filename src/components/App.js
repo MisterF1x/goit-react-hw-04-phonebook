@@ -1,7 +1,7 @@
 import { Global } from '@emotion/react';
 import { Layout } from './Layout/Layout';
 import { Style } from './GlobalStyle';
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import { ContactForm } from './Form/Form';
 import { Contacts } from './Contacts/Contacts';
 import { nanoid } from 'nanoid';
@@ -13,82 +13,73 @@ const initialContacts = [
   { id: 'id-3', name: 'Eden Clements', number: '180-32-645-17-79' },
   { id: 'id-4', name: 'Annie Copeland', number: '380-32-227-91-26' },
 ];
-export class App extends Component {
-  state = {
-    contacts: [],
-    filter: '',
-  };
-  componentDidMount() {
-    const contacts = JSON.parse(localStorage.getItem('contacts'));
-    if (contacts) {
-      this.setState({ contacts });
-    } else {
-      this.setState({ contacts: initialContacts });
-    }
-  }
-  componentDidUpdate(prevProps, prevState) {
-    if (this.state.contacts !== prevState.contacts) {
-      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
-    }
-  }
-  addContact = ({ name, number }) => {
+const getInitialContacts = () => {
+  const savedContacts = JSON.parse(localStorage.getItem('contacts'));
+  const initContacts = savedContacts ? savedContacts : initialContacts;
+  const sortedContacts = initContacts.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
+  return sortedContacts;
+};
+
+export const App = () => {
+  const [contacts, setContacts] = useState(getInitialContacts);
+  const [filter, setFilter] = useState('');
+  const addContact = ({ name, number }) => {
     const contact = {
       id: nanoid(),
       name,
       number,
     };
-    const hasName = this.state.contacts.some(
+    const hasName = contacts.some(
       contact => contact.name.toLowerCase() === name.toLowerCase()
     );
     if (hasName) return window.alert(`${name} is allready in contacts`);
-
-    this.setState(({ contacts }) => ({
-      contacts: [contact, ...contacts],
-    }));
+    setContacts(prevContact =>
+      [...prevContact, contact].sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      )
+    );
   };
-
-  deleteContact = contactId => {
-    this.setState(({ contacts }) => ({
-      contacts: contacts.filter(contact => contact.id !== contactId),
-    }));
+  const deleteContact = contactId => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== contactId)
+    );
   };
-  filteredContact = e => {
-    this.setState({ filter: e.currentTarget.value.trim() });
+  const resetFormFilter = e => {
+    e.preventDefault();
+    setFilter('');
   };
-  getVisibleContact = () => {
-    const { filter, contacts } = this.state;
+  const getVisibleContact = () => {
     const normalizedContacts = filter.toLowerCase();
     return contacts.filter(contact =>
       contact.name.toLowerCase().includes(normalizedContacts)
     );
   };
-  resetFormFilter = e => {
-    e.preventDefault();
-    this.setState({ filter: '' });
-  };
-  render() {
-    const hasContacts = Boolean(this.state.contacts.length);
-    const visibleContacts = this.getVisibleContact();
-    return (
-      <Layout>
-        <h1>Phonebook</h1>
-        <ContactForm onSubmit={this.addContact} />
-        {hasContacts && (
-          <>
-            <Title>Contacts</Title>
-            <ContactsFilter
-              value={this.state.filter}
-              onChange={this.filteredContact}
-              onClick={this.resetFormFilter}
-            />
-            <Contacts
-              contacts={visibleContacts}
-              onDeleteContact={this.deleteContact}
-            />
-          </>
-        )}
-        <Global styles={Style} />
-      </Layout>
-    );
-  }
-}
+
+  useEffect(() => {
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+  }, [contacts]);
+
+  return (
+    <Layout>
+      <h1>Phonebook</h1>
+      <ContactForm onSubmit={addContact} />
+      {!!contacts.length && (
+        <>
+          <Title>Contacts</Title>
+          <ContactsFilter
+            value={filter}
+            onChange={e => setFilter(e.currentTarget.value.trim())}
+            onClick={resetFormFilter}
+          />
+          <Contacts
+            contacts={getVisibleContact()}
+            onDeleteContact={deleteContact}
+          />
+        </>
+      )}
+      <Global styles={Style} />
+    </Layout>
+  );
+};
